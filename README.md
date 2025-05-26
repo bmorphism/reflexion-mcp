@@ -82,9 +82,11 @@ User prompt:
 
 ### Without thinking
 
-| Without thinking | With thinking |
-| --- | --- |
-| [demo1-without-thinking.png](!assets/demo1-without-thinking.png) | [demo1-with-thinking.png](!assets/demo1-with-thinking.png) |
+![demo1-without-thinking.png](/assets/demo1-without-thinking.png)
+
+
+### With thinking
+![demo1-with-thinking.png](/assets/demo1-with-thinking.png)
 
 
 ## Best Practices
