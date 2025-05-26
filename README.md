@@ -2,6 +2,14 @@
 
 A dual-perspective thinking analysis server based on Model Context Protocol (MCP), providing comprehensive performance evaluation through Actor-Critic methodology.
 
+## Showcase
+
+![demo1-with-thinking.png](/assets/demo1-with-thinking.png)
+
+### Without Actor-Critic Thinking
+
+![demo1-without-thinking.png](/assets/demo1-without-thinking.png)
+
 ## Features
 
 - **Dual-perspective Analysis**: Alternates between actor (creator/performer) and critic (analyzer/evaluator) perspectives
@@ -79,15 +87,6 @@ System prompt:
 User prompt:
 
 > Description: A noise-canceling, wireless, over-ear headphone with a 20-hour battery life and touch controls. Designed for audiophiles and frequent travelers. Keywords: immersive, comfortable, high-fidelity, long-lasting, convenient
-
-### Without thinking
-
-![demo1-without-thinking.png](/assets/demo1-without-thinking.png)
-
-
-### With thinking
-![demo1-with-thinking.png](/assets/demo1-with-thinking.png)
-
 
 ## Best Practices
 
