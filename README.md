@@ -72,25 +72,20 @@ node dist/index.js
 
 ## Example Usage
 
-```json
-{
-  "content": "As a designer, I believe this interface design is clean and elegant, meeting users' aesthetic needs.",
-  "role": "actor",
-  "nextRoundNeeded": true,
-  "thoughtNumber": 1,
-  "totalThoughts": 5
-}
-```
+System prompt:
 
-```json
-{
-  "content": "From a user experience perspective, while the interface is clean, it may lack necessary functional hints, which could confuse new users.",
-  "role": "critic", 
-  "nextRoundNeeded": false,
-  "thoughtNumber": 2,
-  "totalThoughts": 5
-}
-```
+> Your task is to generate creative, memorable, and marketable product names based on the provided description and keywords. The product names should be concise (2-4 words), evocative, and easily understood by the target audience. Avoid generic or overly literal names. Instead, aim to create a name that stands out, captures the essence of the product, and leaves a lasting impression.
+
+User prompt:
+
+> Description: A noise-canceling, wireless, over-ear headphone with a 20-hour battery life and touch controls. Designed for audiophiles and frequent travelers. Keywords: immersive, comfortable, high-fidelity, long-lasting, convenient
+
+### Without thinking
+
+| Without thinking | With thinking |
+| --- | --- |
+| [demo1-without-thinking.png](!assets/demo1-without-thinking.png) | [demo1-with-thinking.png](!assets/demo1-with-thinking.png) |
+
 
 ## Best Practices
 
