@@ -1,13 +1,13 @@
 {
-  "name": "mcp-server-actor-critic-thinking",
+  "name": "mcp-server-reflexion-thinking",
   "version": "1.0.0",
-  "description": "MCP server for actor-critic dual perspective thinking and analysis",
+  "description": "An MCP server implementing the Reflexion thinking process (Actor, Evaluator, Self-Reflection with memory) for iterative task solving.",
   "license": "MIT",
   "author": "Aquarius Wing",
   "bugs": "https://github.com/aquarius-wing/actor-critic-thinking-mcp/issues",
   "type": "module",
   "bin": {
-    "mcp-server-actor-critic-thinking": "dist/index.js"
+    "mcp-server-reflexion-thinking": "dist/index.js"
   },
   "files": [
     "dist"
