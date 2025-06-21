@@ -7,246 +7,274 @@ import {
   ListToolsRequestSchema,
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
-// Fixed chalk import for ESM
-import chalk from 'chalk';
+// Fixed chalk import for ESM (though not used in ReflexionServer yet)
+// import chalk from 'chalk';
 
-interface ActorCriticThoughtData {
-  content: string;
-  role: 'actor' | 'critic';
-  nextRoundNeeded: boolean;
-  thoughtNumber: number;
-  totalThoughts: number;
+/**
+ * Represents the data structure for a single trial in the Reflexion process.
+ * This interface is for conceptual clarity; trial data is handled by ReflexionServer's parameters and trialHistory.
+ */
+interface ReflexionTrialData {
+  trialNumber: number;
+  actorOutput: string;
+  evaluatorScore: string | number;
+  reflectionText: string;
+  maxTrials: number;
+  lastStepType: 'actor' | 'evaluator' | 'self-reflection';
 }
 
-class ActorCriticThinkingServer {
-  private thoughtHistory: ActorCriticThoughtData[] = [];
-  private currentRound: number = 1;
+/**
+ * Server for managing the Reflexion process.
+ */
+class ReflexionServer {
+  private trialHistory: {
+    trialNumber: number;
+    actorOutput: string;
+    evaluatorScore: string | number;
+    reflectionText: string;
+  }[] = [];
+  private memory: string[] = [];
+  private maxMemoryDepth = 3;
 
-  private validateThoughtData(input: unknown): ActorCriticThoughtData {
-    const data = input as Record<string, unknown>;
-
-    if (!data.content || typeof data.content !== 'string') {
-      throw new Error('Invalid content: must be a string');
-    }
-    if (!data.role || (data.role !== 'actor' && data.role !== 'critic')) {
-      throw new Error('Invalid role: must be either "actor" or "critic"');
-    }
-    if (typeof data.nextRoundNeeded !== 'boolean') {
-      throw new Error('Invalid nextRoundNeeded: must be a boolean');
-    }
-    if (!data.thoughtNumber || typeof data.thoughtNumber !== 'number') {
-      throw new Error('Invalid thoughtNumber: must be a number');
-    }
-    if (!data.totalThoughts || typeof data.totalThoughts !== 'number') {
-      throw new Error('Invalid totalThoughts: must be a number');
-    }
-    if (data.totalThoughts < 3) {
-      throw new Error('Invalid totalThoughts: must be >= 3');
-    }
-    if (data.totalThoughts % 2 === 0) {
-      throw new Error('Invalid totalThoughts: must be odd');
+  /**
+   * Validates and processes a step in the Reflexion process.
+   * @param stepData The data for the current step, expected to be an object.
+   * @returns A result object indicating the next step or completion.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public validateAndProcessStep(stepData: unknown): any {
+    if (typeof stepData !== 'object' || stepData === null) {
+      return { error: "Invalid input: stepData must be an object." };
     }
 
-    return {
-      content: data.content,
-      role: data.role as 'actor' | 'critic',
-      nextRoundNeeded: data.nextRoundNeeded,
-      thoughtNumber: data.thoughtNumber,
-      totalThoughts: data.totalThoughts,
-    };
-  }
+    const params = stepData as Record<string, unknown>;
 
-  private formatThought(thoughtData: ActorCriticThoughtData): string {
-    const { thoughtNumber, content, role } = thoughtData;
+    const {
+      stepType,
+      trialNumber,
+      maxTrials,
+      actorInputText,
+      actorOutputText,
+      evaluatorScore,
+      reflectionText, // Will be used in 'self-reflection'
+      memoryOverride,
+    } = params;
 
-    let prefix = '';
-    let roleIcon = '';
-    let roleColor = chalk.blue;
-
-    if (role === 'actor') {
-      prefix = '🎭 Actor';
-      roleIcon = '🎭';
-      roleColor = chalk.green;
-    } else {
-      prefix = '🔍 Critic';
-      roleIcon = '🔍';
-      roleColor = chalk.yellow;
+    if (typeof trialNumber !== 'number' || trialNumber < 1) {
+      return { error: "Invalid 'trialNumber': must be a positive integer." };
+    }
+    if (typeof maxTrials !== 'number' || maxTrials < 1) {
+      return { error: "Invalid 'maxTrials': must be a positive integer." };
+    }
+    if (trialNumber > maxTrials) {
+        return { error: "'trialNumber' cannot exceed 'maxTrials'."};
     }
 
-    const header = roleColor(`${prefix} - Round ${Math.ceil(thoughtNumber / 2)} (Thought ${thoughtNumber})`);
-    const border = '─'.repeat(Math.max(header.length, content.length) + 4);
+    if (memoryOverride && Array.isArray(memoryOverride)) {
+        this.memory = memoryOverride.filter(item => typeof item === 'string');
+    }
 
-    return `
-┌${border}┐
-│ ${header} │
-├${border}┤
-│ ${content.padEnd(border.length - 2)} │
-└${border}┘`;
-  }
+    switch (stepType) {
+      case 'actor':
+        if (typeof actorInputText !== 'string') {
+          return { error: "Invalid 'actorInputText': must be a string for 'actor' step." };
+        }
+        // Logic for actor step
+        return {
+          nextStep: 'evaluator',
+          prompt_for_actor: actorInputText,
+          current_memory: this.memory,
+          trialNumber,
+          maxTrials,
+        };
 
-  public processThought(input: unknown): { content: Array<{ type: string; text: string }>; isError?: boolean } {
-    try {
-      const validatedInput = this.validateThoughtData(input);
+      case 'evaluator':
+        if (typeof actorOutputText !== 'string') {
+          return { error: "Invalid 'actorOutputText': must be a string for 'evaluator' step." };
+        }
+        // Logic for evaluator step
+        return {
+          nextStep: 'self-reflection',
+          content_to_evaluate: actorOutputText,
+          trialNumber,
+          maxTrials,
+        };
 
-      this.thoughtHistory.push(validatedInput);
+      case 'self-reflection':
+        if (typeof actorOutputText !== 'string') {
+          return { error: "Invalid 'actorOutputText': must be a string for 'self-reflection' step." };
+        }
+        if (typeof evaluatorScore !== 'string' && typeof evaluatorScore !== 'number') {
+          return { error: "Invalid 'evaluatorScore': must be a string or number for 'self-reflection' step." };
+        }
+        if (typeof reflectionText !== 'string') {
+            // In a real scenario, this step might *prepare a prompt* for an LLM to generate reflectionText.
+            // For this implementation, we'll assume reflectionText is provided as input to complete the trial.
+            return {
+                nextStep: 'self-reflection', // Or a new step type like 'generate-reflection'
+                prompt_for_reflection_llm: {
+                    task_description: "Based on the actor's output and the evaluator's score, generate a concise reflection on what can be improved. Consider the provided memory of past reflections.",
+                    actor_output: actorOutputText,
+                    evaluator_score: evaluatorScore,
+                    current_memory: this.memory,
+                },
+                trialNumber,
+                maxTrials,
+                message: "Self-reflection step initiated. LLM should generate reflectionText based on provided prompt components."
+            };
+        }
 
-      // 更新当前轮次
-      this.currentRound = Math.ceil(validatedInput.thoughtNumber / 2);
+        // Store the reflection
+        this.memory.unshift(reflectionText);
+        if (this.memory.length > this.maxMemoryDepth) {
+          this.memory.pop();
+        }
 
-      const formattedThought = this.formatThought(validatedInput);
-      console.error(formattedThought);
+        // Store completed trial
+        this.trialHistory.push({
+          trialNumber,
+          actorOutput: actorOutputText,
+          evaluatorScore,
+          reflectionText,
+        });
 
-      // 检查是否需要切换角色
-      const nextRole = validatedInput.role === 'actor' ? 'critic' : 'actor';
-      const isRoundComplete = validatedInput.thoughtNumber % 2 === 0;
+        const nextTrialNeeded = trialNumber < maxTrials;
+        return {
+          trialCompleted: trialNumber,
+          reflection_added_to_memory: reflectionText,
+          memory: this.memory,
+          next_trial_needed: nextTrialNeeded,
+          trial_history_length: this.trialHistory.length,
+        };
 
-      return {
-        content: [{
-          type: "text",
-          text: JSON.stringify({
-            thoughtNumber: validatedInput.thoughtNumber,
-            totalThoughts: validatedInput.totalThoughts,
-            currentRound: this.currentRound,
-            currentRole: validatedInput.role,
-            nextRole: nextRole,
-            isRoundComplete: isRoundComplete,
-            nextRoundNeeded: validatedInput.nextRoundNeeded,
-            thoughtHistoryLength: this.thoughtHistory.length,
-            actorThoughts: this.thoughtHistory.filter(t => t.role === 'actor').length,
-            criticThoughts: this.thoughtHistory.filter(t => t.role === 'critic').length
-          }, null, 2)
-        }]
-      };
-    } catch (error) {
-      return {
-        content: [{
-          type: "text",
-          text: JSON.stringify({
-            error: error instanceof Error ? error.message : String(error),
-            status: 'failed'
-          }, null, 2)
-        }],
-        isError: true
-      };
+      default:
+        return { error: `Unknown stepType: '${stepType}'. Must be 'actor', 'evaluator', or 'self-reflection'.` };
     }
   }
 }
 
-const ACTOR_CRITIC_THINKING_TOOL: Tool = {
-  name: "actor-critic-thinking",
-  description: `A sophisticated tool for dual-perspective performance analysis through actor-critic methodology.
-This tool enables comprehensive evaluation of performances, creative works, or decisions by embodying both the performer's mindset and the critic's analytical perspective.
-Each thought alternates between actor (creative/experiential) and critic (analytical/evaluative) viewpoints, creating a balanced assessment.
-
-When to use this tool:
-- Evaluating artistic performances, creative works, or strategic decisions
-- Analyzing the gap between intention and execution
-- Providing constructive feedback that considers both creative vision and technical execution
-- Reviewing complex scenarios that require both empathy and objectivity
-- Situations requiring balanced assessment of subjective and objective criteria
-- Performance reviews that need both self-reflection and external evaluation
-- Creative processes that benefit from iterative refinement
-
-Key features:
-- Alternates between actor (performer) and critic (evaluator) perspectives
-- Tracks rounds of dual-perspective analysis
-- Allows for multiple rounds of actor-critic dialogue
-- Balances empathetic understanding with objective analysis
-- Generates nuanced, multi-dimensional assessments
-- Provides actionable feedback for improvement
-
-Parameters explained:
-- content: Your current analysis content from the specified role perspective
-- role: Either "actor" (empathetic/creative viewpoint) or "critic" (analytical/evaluative viewpoint)
-- nextRoundNeeded: True if another round of actor-critic dialogue is needed
-- thoughtNumber: Current thought number in the sequence (increments with each thought)
-- totalThoughts: Total number of thoughts planned (must be odd and >= 3)
-
-Actor perspective should include:
-* Understanding intentions, creative choices, emotional context, challenges faced
-* Self-reflection on performance and decision-making process
-* Explanation of creative vision and goals
-
-Critic perspective should include:
-* Technical execution analysis, effectiveness evaluation
-* Audience impact assessment, comparative analysis
-* Objective feedback and improvement suggestions
-
-You should:
-1. Start with either actor or critic perspective
-2. Alternate between perspectives to maintain balance
-3. Continue rounds until comprehensive analysis is achieved
-4. Focus on relevant performance aspects
-5. Generate balanced assessments that honor both perspectives
-6. Provide constructive, actionable feedback
-7. Only set nextRoundNeeded to false when analysis is complete`,
+const REFLEXION_TOOL: Tool = {
+  name: "reflexion-thinking",
+  description:
+    "A tool for iterative refinement using the Reflexion framework (Actor, Evaluator, Self-Reflection). It guides the process of generating output, evaluating it, and then reflecting on the feedback to improve in subsequent trials. Memory of past reflections is maintained to aid learning.",
   inputSchema: {
     type: "object",
     properties: {
-      content: {
+      stepType: {
         type: "string",
-        description: "Your current analysis content from the specified role perspective"
+        enum: ["actor", "evaluator", "self-reflection"],
+        description: "The current step in the Reflexion process.",
       },
-      role: {
+      trialNumber: {
+        type: "integer",
+        minimum: 1,
+        description: "Current trial number.",
+      },
+      maxTrials: {
+        type: "integer",
+        minimum: 1,
+        description: "Maximum number of trials planned.",
+      },
+      actorInputText: {
         type: "string",
-        enum: ["actor", "critic"],
-        description: "The perspective role: 'actor' for empathetic/creative viewpoint, 'critic' for analytical/evaluative viewpoint"
+        description: "(For actor step) The initial prompt or task for the Actor.",
       },
-      nextRoundNeeded: {
-        type: "boolean",
-        description: "Whether another round of actor-critic dialogue is needed"
+      actorOutputText: {
+        type: "string",
+        description: "(For evaluator & self-reflection steps) The output generated by the Actor in the current trial.",
       },
-      thoughtNumber: {
-        type: "integer",
-        description: "Current thought number in the sequence",
-        minimum: 1
+      evaluatorScore: {
+        type: "string", // Can be string or number, string is simpler for JSON
+        description: "(For self-reflection step) The evaluation score or feedback for the Actor's output.",
       },
-      totalThoughts: {
-        type: "integer",
-        description: "Total number of thoughts planned (must be odd and >= 3)",
-        minimum: 3
-      }
+      reflectionText: {
+        type: "string",
+        description: "(For self-reflection step, if providing directly) The reflection text generated to complete the trial.",
+      },
+      memoryOverride: {
+        type: "array",
+        items: { type: "string" },
+        description: "Optional. Provide an initial list of reflections for the memory.",
+      },
     },
-    required: ["content", "role", "nextRoundNeeded", "thoughtNumber", "totalThoughts"]
-  }
+    required: ["stepType", "trialNumber", "maxTrials"],
+  },
+   outputSchema: { // Conceptual, actual output is dynamic based on step
+    type: "object",
+    properties: {
+        // Actor step output
+        nextStep: { type: "string", enum: ["evaluator", "self-reflection"] },
+        prompt_for_actor: { type: "string" },
+        current_memory: { type: "array", items: { type: "string" } },
+        // Evaluator step output
+        content_to_evaluate: { type: "string" },
+        // Self-reflection step output (when reflectionText is provided)
+        trialCompleted: { type: "integer" },
+        reflection_added_to_memory: { type: "string" },
+        memory: { type: "array", items: { type: "string" } },
+        next_trial_needed: { type: "boolean" },
+        trial_history_length: { type: "integer" },
+        // Self-reflection step output (when reflectionText is NOT provided)
+        prompt_for_reflection_llm: { type: "object" },
+        // Common fields
+        trialNumber: { type: "integer" },
+        maxTrials: { type: "integer" },
+        message: { type: "string" },
+        error: { type: "string" },
+    },
+  },
 };
 
 const server = new Server(
   {
-    name: "actor-critic-thinking-server",
-    version: "0.2.0",
+    name: "reflexion-thinking-server", // Updated server name
+    version: "0.1.0", // Initial version for Reflexion server
   },
   {
     capabilities: {
-      tools: {},
+      tools: {}, // tools are registered via setRequestHandler for ListTools
     },
   }
 );
 
-const thinkingServer = new ActorCriticThinkingServer();
+const reflexionServer = new ReflexionServer();
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [ACTOR_CRITIC_THINKING_TOOL],
+  tools: [REFLEXION_TOOL], // Return the new Reflexion tool
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  if (request.params.name === "actor-critic-thinking") {
-    return thinkingServer.processThought(request.params.arguments);
+  if (request.params.name === "reflexion-thinking") {
+    // The arguments are already parsed by the SDK into an object
+    const result = reflexionServer.validateAndProcessStep(request.params.arguments);
+    return {
+      // id: request.id, // SDK handles this
+      // toolName: request.params.name, // SDK handles this
+      // type: 'tool-response', // SDK handles this
+      content: [{
+        type: "text",
+        text: JSON.stringify(result), // Result from validateAndProcessStep
+      }],
+      // isError can be set if the entire step is an operational failure,
+      // but business logic errors are within the JSON result.
+    };
   }
 
+  // Handle unknown tools
   return {
     content: [{
       type: "text",
-      text: `Unknown tool: ${request.params.name}`
+      text: JSON.stringify({ error: `Unknown tool: ${request.params.name}` })
     }],
-    isError: true
+    isError: true // Indicate that the tool call itself failed
   };
 });
 
 async function runServer() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Actor-Critic Thinking MCP Server running on stdio");
+  // Updated console log message
+  console.error("Reflexion Thinking MCP Server running on stdio");
 }
 
 runServer().catch((error) => {
