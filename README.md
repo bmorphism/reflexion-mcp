@@ -4,16 +4,6 @@
 
 This server implements the **Reflexion** methodology (Shinn et al., 2023) as a Model Context Protocol (MCP) tool. It enables iterative refinement of outputs through a structured process involving an **Actor**, an **Evaluator**, and **Self-Reflection**, augmented by an episodic **memory** of past reflections. This approach uses verbal reinforcement to guide an agent towards better performance on a given task.
 
-## Showcase
-
-(Note: Demo images are from a previous version and will be updated to reflect the Reflexion model's workflow.)
-
-**With Reflexion Thinking (Conceptual):**
-![Demo with thinking process](/assets/demo1-with-thinking.png)
-
-**Without Reflexion Thinking (Conceptual):**
-![Demo without thinking process](/assets/demo1-without-thinking.png)
-
 ## Features
 
 - **Iterative Refinement:** Improves outputs through cycles of generation, evaluation, and self-reflection.
@@ -176,6 +166,42 @@ To use this server with an MCP client (like GLAMA), you would configure it in yo
     `actorOutputText = "def add(a, b): return a + b"`
 
 ...and so on. The process continues with evaluation and potential further reflection until `maxTrials` is reached or the output is satisfactory.
+
+Here's a specific example in the domain of geometric algebra:
+
+### Example 1 · Translating a Projective Conic into Conformal Geometric Algebra
+
+> Task
+> Translate the projective conic
+> C : x² + y² − z² = 0
+> into conformal geometric-algebra (CGA) representation.
+
+<details>
+<summary>Click to view Reflexion trace</summary>
+
+```diff
+@@ Actor (Initial attempt)
+- The conic x² + y² − z² = 0 can be viewed as a circle in projective space.
+- In geometric algebra we might write it as a bivector B = e₁ ∧ e₂,
+- corresponding to the plane of the circle.
+
+@@ Evaluator (Feedback)
++ Too vague: a circle in CGA is a **trivector** (outer product of three conformal points).
++ Need to embed points into ℝ^{4,1} first and be explicit about null vectors.
++ Clarify projective coordinates vs. Euclidean slice.
+
+@@ Actor (After reflection)
++ Embed ℝ² into CGA with null vectors e₊, e₋:
++   P(x,y) = x e₁ + y e₂ + ½(x² + y²) e₊ + e₋.
++ Choose three points on the conic, e.g.
++   P₁ = P(1,0),  P₂ = P(0,1),  P₃ = P(1,1).
++ The circle is the trivector
++   C = P₁ ∧ P₂ ∧ P₃.
++ This blade encodes the same locus as x² + y² − z² = 0 under the conformal embedding.
+```
+
+Takeaway. The reflection fixes two key gaps: (1) moves from a bivector to the correct trivector representation, and (2) makes the ℝ^{4,1}     embedding explicit.
+</details>
 
 ## Best Practices
 
